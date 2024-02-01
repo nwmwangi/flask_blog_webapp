@@ -9,9 +9,11 @@ from flask_mail import Mail
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'b56d7c1813909f6cd97db542a7759a2b0ec8efba'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:postgres123@localhost:5433/blog_webapp'
 db = SQLAlchemy(app) 
+app.app_context().push()
 bcrypt = Bcrypt(app)
+
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
@@ -28,3 +30,4 @@ mail = Mail(app)
 
 
 from flask_webapp import routes
+

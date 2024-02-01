@@ -1,19 +1,21 @@
 import os
 import secrets
+from flask import Blueprint
 from flask import render_template, url_for, flash, redirect, request, abort
 from PIL import Image
 from flask_webapp import app, db, bcrypt, mail
-from flask_webapp.forms import (RegistrationForm, LoginForm, UpdateForm,
-									 PostForm, ResetForm,ResetPasswordForm)
-from flask_webapp.models import User, Post
+from flask_webapp.models import User, Article
+from flask_webapp.forms import (RegistrationForm, LoginForm, UpdateForm, PostForm, ResetForm,ResetPasswordForm)
 from flask_login import login_user, current_user, logout_user, login_required
 from flask_mail import Message
+
+from flask_webapp import models
 
 @app.route("/")
 @app.route("/home")
 def home():
 	page = request.args.get('page', 1, type=int)
-	posts = Post.query.order_by(Post.date_posted.desc()).paginate(page=page, per_page=5)
+	posts = Article.query.order_by(Article.date_posted.desc()).paginate(page=page, per_page=5)
 	return render_template('home.html', posts=posts)
 
 
@@ -92,7 +94,7 @@ def account():
 		form.username.data = current_user.username
 		form.email.data = current_user.email
 	image_file = url_for('static', filename=f'profiles/{current_user.image_file}')
-	return render_template('account.html', title='Account', image_file=image_file)
+	return render_template('account.html', title='Account', image_file=image_file, form=form)
 
 
 @app.route("/post/new", methods = ['GET', 'POST'])
@@ -100,23 +102,23 @@ def account():
 def new_post():
 	form = PostForm()
 	if form.validate_on_submit():
-		post = POST(title=form.title.data, content=form.content.data, author=current_user)
+		post = Article(title=form.title.data, content=form.content.data, author=current_user)
 		db.session.add(post)
 		db.session.commit()
 		flash('Article created successfully!', 'success')
 		return redirect(url_for('home'))
-	return render_template('create_post.html', title = 'New Post', form=form)
+	return render_template('create_post.html', title = 'New Post', form=form, legend='Create New Article')
 
 @app.route("/post/<int:post_id>")
 def article(post_id):
-	post = POST.query.get_or_404(post_id)
-	return render_template('post.html', title=post.title, post=post, legend='New Article')
+	post = Article.query.get_or_404(post_id)
+	return render_template('article.html', title=Article.title, post=post, legend='New Article')
 
 
 @app.route("/post/<int:post_id>/update", methods=['GET', 'POST'])
 @login_required
 def update_article(post_id):
-	post = POST.query.get_or_404(post_id)
+	post = Article.query.get_or_404(post_id)
 	if post.author != current_user:
 		abort(403)
 	form = PostForm()
@@ -124,43 +126,44 @@ def update_article(post_id):
 		post.title = form.title.data
 		post.content = form.content.data
 		flash('Update successful!', 'success')
+		db.session.commit()
 		return redirect(url_for('article', post_id = post.id))
 	elif request.method == 'GET':
 		form.title.data = post.title
 		form.content.data = post.content
 
-	return render_template('create_post.html', title='Update Post', form=form, legend = 'Update Article')
+	return render_template('create_post.html', title='Update Article', legend = 'Update Article', form=form)
 
 
 @app.route("/post/<int:post_id>/delete", methods=['POST'])
 @login_required
 def delete_article(post_id):
-	post = POST.query.get_or_404(post_id)
+	post = Article.query.get_or_404(post_id)
 	if post.author != current_user:
 		abort(403)
 
 	db.session.delete(post)
 	db.session.commit()
-	flash('Article has been deleted!', 'success')
+	flash('Article deleted!', 'success')
 	return redirect(url_for('home'))
 
 
 @app.route("/")
 @app.route("/user/<string:username>")
-def user_article():
+def user_article(username):
 	page = request.args.get('page', 1, type=int)
 	user = User.query.filter_by(username=username).first_or_404()
-	posts = Post.query.filter_by(author=user)\
-	.order_by(Post.date_posted.desc())\
-	.paginate(page=page, per_page=5)
+	posts = Article.query.filter_by(author=user)\
+	.order_by(Article.date_posted.desc())\
+	.paginate(page=page, per_page=2)
 	return render_template('user_article.html', posts=posts, user=user)
 
 def send_reset_email(user):
 	token = user.get_reset_token()
 	msg = Message('Password Reset Request',
-					sender = 'noreply@example.com',
+					sender = os.environ.get('ACCOUNT_EMAIL'),
 					recipients=[user.email])
-	msg.body = f'''Follow this link to rest your password:
+	msg.body = f'''Follow this link to reset your password:
 {url_for('reset_token', token=token, _external=True)} '''
 
 	mail.send(msg)
@@ -174,7 +177,7 @@ def reset_request():
 	if form.validate_on_submit():
 		user = User.query.filter_by(email=form.email.data).first()
 		send_reset_email(user)
-		flash("reset instructions send to your email!")
+		flash("reset instructions send to your email!", 'info')
 		return redirect(url_for('login'))
 	return render_template('reset_request.html', title='Reset Password', form=form)
 
@@ -186,11 +189,11 @@ def reset_token(token):
 	user = User.verify_reset_token(token)
 	if user is None:
 		flash("Expired token!", 'warning')
-		return redirect(url_for(reset_request))
+		return redirect(url_for('reset_request'))
 	form = ResetPasswordForm()
 	if form.validate_on_submit():
 		hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
-		user,password = hashed_password
+		user.password = hashed_password
 		db.session.commit()
 		flash(f'Password reset is successful! Login Now!', 'success')
 		return redirect(url_for('login'))

@@ -11,16 +11,17 @@ def load_user(user_id):
 
 
 class User(db.Model, UserMixin):
+	__tablename__ = 'user'
 	id = db.Column(db.Integer, primary_key=True)
 	username = db.Column(db.String(25), unique=True, nullable=False)
 	email = db.Column(db.String(130), unique=True, nullable=False)
 	image_file = db.Column(db.String(30), nullable=False, default='default.jpg')
 	password = db.Column(db.String(60), nullable=False)
-	posts = db.relationship('Post', backref='author', lazy='dynamic',
-                        primaryjoin="User.id == Post.user_id")
+	posts = db.relationship('Article', backref='author', lazy=True)
 
+	
 	def get_reset_token(self, expires_sec=1800):
-		s = Serializer(app.config['SECRET_KEY', expires_sec])
+		s = Serializer(app.config['SECRET_KEY'], expires_sec)
 		return s.dumps({'user_id': self.id}).decode('utf-8')
 
 	@staticmethod
@@ -36,13 +37,13 @@ class User(db.Model, UserMixin):
 		return f"User('{self.username}', '{self.email}', '{self.image_file}')"
 
 
-class Post(db.Model):
+class Article(db.Model):
+	__tablename__ = 'post'
 	id = db.Column(db.Integer, primary_key=True)
 	title = db.Column(db.String(125), nullable=False)
-	date_posted = db.Column(db.String(130), unique=True, nullable=False)
-	image_file = db.Column(db.DateTime(30), nullable=False, default=datetime.utcnow)
+	date_posted = db.Column(db.DateTime(30), nullable=False, default=datetime.utcnow)
 	content = db.Column(db.Text, nullable=False)
-	posts = db.relationship('Post', backref='author', lazy=True)
+	
 	user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
 	def __repr__(self):
