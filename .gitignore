@@ -1,3 +1,7 @@
 __pycache__
 snippets_code
 rundb.py
+flask_webapp/__pycache__
+flask_webapp/articles/__pycache__
+flask_webapp/users/__pycache__
+flask_webapp/main/__pycache__
