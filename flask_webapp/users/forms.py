@@ -52,12 +52,6 @@ class UpdateForm(FlaskForm):
 				raise ValidationError('user already exists, pick a different username!')
 
 
-class PostForm(FlaskForm):
-	title = StringField('Title', validators= [DataRequired()])
-	content = TextAreaField('Content', validators=[DataRequired()])
-	submit = SubmitField('Post')
-
-
 class ResetForm(FlaskForm):
 	email = StringField('Email', validators=[DataRequired(), Email()])
 	submit = SubmitField('Ask for Reset Password!')
